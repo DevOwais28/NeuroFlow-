@@ -10,7 +10,21 @@ import httpx
 from datetime import datetime, timezone
 
 router = APIRouter()
- 
+
+# Simple in-memory cache for status checks (30 second TTL)
+status_cache = {}
+
+def is_cache_valid(uid):
+    if uid not in status_cache:
+        return False
+    return (datetime.now(timezone.utc) - status_cache[uid]["time"]).seconds < 30
+
+def get_cache(uid):
+    return status_cache.get(uid, {}).get("data")
+
+def set_cache(uid, data):
+    status_cache[uid] = {"data": data, "time": datetime.now(timezone.utc)}
+
 def get_db():
     from auth import db
     if db is None:
@@ -50,7 +64,7 @@ class GoogleLinkRequest(BaseModel):
 async def _refresh_access_token(refresh_token: str) -> Optional[str]:
     """Exchange a refresh token for a new access token."""
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             res = await client.post(GOOGLE_TOKEN_URL, data={
                 "client_id": settings.GOOGLE_CLIENT_ID,
                 "client_secret": settings.GOOGLE_CLIENT_SECRET,
@@ -77,7 +91,7 @@ async def _get_valid_token(uid: str) -> Optional[str]:
     refresh_token = data.get("refresh_token")
 
     # Quick check — try using the current token
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=10.0) as client:
         test = await client.get(
             GOOGLE_USERINFO_URL,
             headers={"Authorization": f"Bearer {access_token}"}
@@ -125,7 +139,7 @@ async def get_google_auth_url(uid: str):
 async def google_callback(data: GoogleLinkRequest):
     print(f"🔵 Google callback called with uid={data.uid}, code={'***' if data.code else 'NONE'}")
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
 
             # Use the redirect_uri from frontend if provided, otherwise fallback to settings
             redirect_uri = data.redirect_uri or settings.GOOGLE_REDIRECT_URI
@@ -213,20 +227,28 @@ async def google_callback(data: GoogleLinkRequest):
 
 @router.get("/status/{uid}")
 async def get_google_status(uid: str):
+    # Check cache first
+    if is_cache_valid(uid):
+        return get_cache(uid)
+
     try:
         db = get_db()
         doc = db.collection("users").document(uid).collection("connections").document("google").get()
 
         if not doc.exists:
-            return {"connected": False, "email": None}
+            result = {"connected": False, "email": None}
+            set_cache(uid, result)
+            return result
 
         data = doc.to_dict()
-        return {
+        result = {
             "connected": True,
             "email":     data.get("email"),
             "name":      data.get("name"),
             "picture":   data.get("picture"),
         }
+        set_cache(uid, result)
+        return result
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -242,7 +264,7 @@ async def get_emails(uid: str, limit: int = 10):
         if not access_token:
             raise HTTPException(status_code=400, detail="Google not connected or token expired")
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
 
             # List message IDs
             list_res = await client.get(
@@ -299,7 +321,7 @@ async def get_calendar_events(uid: str, limit: int = 10):
         # Fetch upcoming events from now
         now = datetime.now(timezone.utc).isoformat()
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             res = await client.get(
                 CALENDAR_API_URL,
                 headers={"Authorization": f"Bearer {access_token}"},
