@@ -49,15 +49,21 @@ export default function GoogleCallback() {
       try {
         setStatus("Linking your Google account…");
 
+        const REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI || `${window.location.origin}/google/callback`;
+
         const res = await fetch(`${API_URL}/google/callback`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ uid, code }),
+          body: JSON.stringify({ 
+            uid, 
+            code, 
+            redirect_uri: REDIRECT_URI 
+          }),
         });
 
         if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || `Server error ${res.status}`);
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Server error ${res.status}`);
         }
 
         const data = await res.json();
