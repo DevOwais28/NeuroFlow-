@@ -11,7 +11,7 @@ import {
 import { auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 
-const API_URL = import.meta.env.VITE_API_URL || "https://neuro-flow-psi.vercel.app";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const DiscordContext = createContext(null);
 
@@ -55,17 +55,22 @@ export function DiscordProvider({ children }) {
 
     try {
       const token = await user.getIdToken();
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 8000);
 
       const res = await fetch(`${API_URL}/discord/user/${user.uid}`, {
         headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal
       });
+      clearTimeout(id);
 
       if (!res.ok) return;
 
       const data = await res.json();
       setDiscordUser(data.connected ? data : null);
     } catch (err) {
-      console.error(err);
+      if (err.name === 'AbortError') console.warn("Discord status check timed out");
+      else console.error("Discord status check error:", err);
     } finally {
       statusLock.current = false;
     }
@@ -81,11 +86,26 @@ export function DiscordProvider({ children }) {
   const getDiscordAuthUrl = useCallback(async () => {
     if (!user) throw new Error("Not authenticated");
 
-    const res = await fetch(`${API_URL}/discord/auth-url?uid=${user.uid}`);
-    if (!res.ok) throw new Error("Failed auth URL");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-    const data = await res.json();
-    return data.auth_url;
+    try {
+      const res = await fetch(`${API_URL}/discord/auth-url?uid=${user.uid}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) throw new Error("Failed auth URL");
+
+      const data = await res.json();
+      return data.auth_url;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        throw new Error("Backend not responding. Please check if the backend is running.");
+      }
+      throw err;
+    }
   }, [user]);
 
   // =========================
