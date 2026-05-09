@@ -56,7 +56,7 @@ export function DiscordProvider({ children }) {
     try {
       const token = await user.getIdToken();
       const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 8000);
+      const id = setTimeout(() => controller.abort(), 20000);
 
       const res = await fetch(`${API_URL}/discord/user/${user.uid}`, {
         headers: { Authorization: `Bearer ${token}` },
