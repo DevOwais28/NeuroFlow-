@@ -14,7 +14,21 @@ import httpx
 import urllib.parse
 
 router = APIRouter()
- 
+
+# Simple in-memory cache for status checks (30 second TTL)
+status_cache = {}
+
+def is_cache_valid(uid):
+    if uid not in status_cache:
+        return False
+    return (datetime.utcnow() - status_cache[uid]["time"]).seconds < 30
+
+def get_cache(uid):
+    return status_cache.get(uid, {}).get("data")
+
+def set_cache(uid, data):
+    status_cache[uid] = {"data": data, "time": datetime.utcnow()}
+
 def get_db():
     from auth import db
     if db is None:
@@ -98,7 +112,7 @@ async def linkedin_callback(
 
     # Exchange code for access token
     print(f"🔵 LinkedIn: Exchanging code with redirect_uri: {settings.LINKEDIN_REDIRECT_URI}")
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=10.0) as client:
         try:
             token_resp_raw = await client.post(
                 "https://www.linkedin.com/oauth/v2/accessToken",
@@ -127,7 +141,7 @@ async def linkedin_callback(
     #     then fall back to OpenID /userinfo (requires openid product) ---
     auth_headers = {"Authorization": f"Bearer {access_token}"}
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=10.0) as client:
         # Try the current v2/me endpoint
         me_resp = await client.get(
             "https://api.linkedin.com/v2/me",
@@ -226,16 +240,24 @@ async def linkedin_callback(
 
 @router.get("/status/{uid}")
 async def linkedin_status(uid: str):
+    # Check cache first
+    if is_cache_valid(uid):
+        return get_cache(uid)
+
     db = get_db()
     if not db:
-        return {"connected": False}
+        result = {"connected": False}
+        set_cache(uid, result)
+        return result
     try:
         doc = db.collection("users").document(uid).collection("connections").document("linkedin").get()
         if not doc.exists:
-            return {"connected": False}
+            result = {"connected": False}
+            set_cache(uid, result)
+            return result
 
         data = doc.to_dict()
-        return {
+        result = {
             "connected": data.get("connected", False),
             "profile": {
                 "linkedin_id": data.get("linkedin_id"),
@@ -244,6 +266,8 @@ async def linkedin_status(uid: str):
                 "picture": data.get("picture"),
             },
         }
+        set_cache(uid, result)
+        return result
     except Exception as e:
         print(f"🔴 LinkedIn status error: {e}")
         return {"connected": False}
