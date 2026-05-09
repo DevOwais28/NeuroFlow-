@@ -51,6 +51,9 @@ export default function GoogleCallback() {
 
         const REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI || `${window.location.origin}/google/callback`;
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+
         const res = await fetch(`${API_URL}/google/callback`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -59,7 +62,9 @@ export default function GoogleCallback() {
             code, 
             redirect_uri: REDIRECT_URI 
           }),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
