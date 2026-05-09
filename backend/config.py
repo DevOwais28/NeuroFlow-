@@ -39,18 +39,18 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
     # CORS
-    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,https://neuro-flow-psi.vercel.app")
 
     # Discord OAuth2 Settings
     DISCORD_CLIENT_ID: Optional[str] = os.getenv("DISCORD_CLIENT_ID")
     DISCORD_CLIENT_SECRET: Optional[str] = os.getenv("DISCORD_CLIENT_SECRET")
-    DISCORD_REDIRECT_URI: str = os.getenv("DISCORD_REDIRECT_URI", "http://localhost:5173/discord/callback")
+    DISCORD_REDIRECT_URI: str = os.getenv("DISCORD_REDIRECT_URI", "https://neuro-flow-psi.vercel.app/discord/callback")
     DISCORD_BOT_TOKEN: Optional[str] = os.getenv("DISCORD_BOT_TOKEN")
 
     # Google OAuth2 Settings
     GOOGLE_CLIENT_ID: Optional[str] = os.getenv("GOOGLE_CLIENT_ID")
     GOOGLE_CLIENT_SECRET: Optional[str] = os.getenv("GOOGLE_CLIENT_SECRET")
-    GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:5173/google/callback")
+    GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "https://neuro-flow-psi.vercel.app/google/callback")
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
     # LinkedIn OAuth2 Settings
