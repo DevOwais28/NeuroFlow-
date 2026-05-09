@@ -12,35 +12,35 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 def initialize_firebase():
     global db
     try:
-        # 1. Try serviceAccountKey.json file first (use absolute path for Vercel)
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        service_key_path = os.path.join(script_dir, "serviceAccountKey.json")
-        if os.path.exists(service_key_path):
-            cred = credentials.Certificate(service_key_path)
+        # 1. Try environment variables FIRST (works on Vercel)
+        private_key = settings.FIREBASE_PRIVATE_KEY
+        if private_key:
+            # Handle escaped newlines in env var
+            private_key = private_key.replace("\\n", "\n")
+            
+            cred_dict = {
+                "type": "service_account",
+                "project_id": settings.FIREBASE_PROJECT_ID,
+                "private_key_id": settings.FIREBASE_PRIVATE_KEY_ID,
+                "private_key": private_key,
+                "client_email": settings.FIREBASE_CLIENT_EMAIL,
+                "client_id": settings.FIREBASE_CLIENT_ID,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{settings.FIREBASE_CLIENT_EMAIL}"
+            }
+            cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
-            print("Firebase Admin initialized from serviceAccountKey.json")
+            print(f"✅ Firebase Admin initialized from environment variables (Project: {settings.FIREBASE_PROJECT_ID})")
         else:
-            # 2. Fallback to environment variables
-            private_key = settings.FIREBASE_PRIVATE_KEY
-            if private_key:
-                # Handle escaped newlines in env var
-                private_key = private_key.replace("\\n", "\n")
-                
-                cred_dict = {
-                    "type": "service_account",
-                    "project_id": settings.FIREBASE_PROJECT_ID,
-                    "private_key_id": settings.FIREBASE_PRIVATE_KEY_ID,
-                    "private_key": private_key,
-                    "client_email": settings.FIREBASE_CLIENT_EMAIL,
-                    "client_id": settings.FIREBASE_CLIENT_ID,
-                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                    "token_uri": "https://oauth2.googleapis.com/token",
-                    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                    "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{settings.FIREBASE_CLIENT_EMAIL}"
-                }
-                cred = credentials.Certificate(cred_dict)
+            # 2. Fallback to serviceAccountKey.json file (local dev)
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            service_key_path = os.path.join(script_dir, "serviceAccountKey.json")
+            if os.path.exists(service_key_path):
+                cred = credentials.Certificate(service_key_path)
                 firebase_admin.initialize_app(cred)
-                print(f"✅ Firebase Admin initialized from environment variables (Project: {settings.FIREBASE_PROJECT_ID})")
+                print("Firebase Admin initialized from serviceAccountKey.json")
             else:
                 print("🔴 Firebase Error: No credentials found (FIREBASE_PRIVATE_KEY is missing)")
                 return None
