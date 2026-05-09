@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { auth } from "../firebase";
 
 const LinkedInContext = createContext(null);
@@ -13,14 +13,18 @@ export function LinkedInProvider({ children }) {
   const [loading, setLoading] = useState(false);
 
   const getUid = () => auth.currentUser?.uid;
+  const statusLock = useRef(false);
+  const hasFetchedStatus = useRef(false);
 
   // Check connection status on mount / auth change
   const checkStatus = useCallback(async () => {
     const uid = getUid();
-    if (!uid) return;
+    if (!uid || statusLock.current || hasFetchedStatus.current) return;
+    statusLock.current = true;
+    hasFetchedStatus.current = true;
     try {
       const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 8000);
+      const id = setTimeout(() => controller.abort(), 20000);
 
       const res = await fetch(`${API_URL}/linkedin/status/${uid}`, {
         signal: controller.signal
@@ -34,6 +38,8 @@ export function LinkedInProvider({ children }) {
     } catch (e) {
       if (e.name === 'AbortError') console.warn("LinkedIn status check timed out");
       else console.warn("LinkedIn status check failed:", e);
+    } finally {
+      statusLock.current = false;
     }
   }, []);
 
