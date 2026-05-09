@@ -12,9 +12,11 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 def initialize_firebase():
     global db
     try:
-        # 1. Try serviceAccountKey.json file first
-        if os.path.exists("serviceAccountKey.json"):
-            cred = credentials.Certificate("serviceAccountKey.json")
+        # 1. Try serviceAccountKey.json file first (use absolute path for Vercel)
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        service_key_path = os.path.join(script_dir, "serviceAccountKey.json")
+        if os.path.exists(service_key_path):
+            cred = credentials.Certificate(service_key_path)
             firebase_admin.initialize_app(cred)
             print("Firebase Admin initialized from serviceAccountKey.json")
         else:
