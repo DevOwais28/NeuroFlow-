@@ -11,10 +11,26 @@ from datetime import datetime, timedelta
 from config import settings
 
 router = APIRouter(prefix="/discord", tags=["Discord Integration"])
+
+# Simple in-memory cache for status checks (30 second TTL)
+status_cache = {}
+
+def is_cache_valid(uid):
+    if uid not in status_cache:
+        return False
+    return (datetime.utcnow() - status_cache[uid]["time"]).seconds < 30
+
+def get_cache(uid):
+    return status_cache.get(uid, {}).get("data")
+
+def set_cache(uid, data):
+    status_cache[uid] = {"data": data, "time": datetime.utcnow()}
  
 def get_db():
     from auth import db
+    print(f"🔵 get_db called, db={db}")
     if db is None:
+        print(f"🔴 Firestore not initialized!")
         raise HTTPException(status_code=500, detail="Firestore not initialized")
     return db
 
@@ -74,10 +90,11 @@ async def get_discord_auth_url(uid: str):
 
 @router.post("/callback")
 async def discord_callback(data: DiscordLinkRequest):
+    print(f"🔵 Discord callback started for uid={data.uid}, code={'***' if data.code else 'NONE'}")
 
     try:
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
 
             # Use the redirect_uri from frontend if provided, otherwise fallback to settings
             redirect_uri = data.redirect_uri or settings.DISCORD_REDIRECT_URI
@@ -125,19 +142,27 @@ async def discord_callback(data: DiscordLinkRequest):
             db = get_db()
 
             discord_data = {
+                "access_token": tokens["access_token"],
+                "refresh_token": tokens.get("refresh_token"),
                 "discord_id": discord_user["id"],
                 "discord_username": discord_user["username"],
                 "discord_email": discord_user.get("email"),
-                "access_token": tokens["access_token"],
-                "refresh_token": tokens["refresh_token"],
+                "discord_avatar": discord_user.get("avatar"),
+                "connected": True,
                 "connected_at": datetime.utcnow().isoformat()
             }
 
-            db.collection("users") \
-                .document(data.uid) \
-                .collection("connections") \
-                .document("discord") \
-                .set(discord_data)
+            try:
+                print(f"🔵 Discord: Saving to Firestore...")
+                db.collection("users") \
+                    .document(data.uid) \
+                    .collection("connections") \
+                    .document("discord") \
+                    .set(discord_data)
+                print(f"✅ Discord: Saved to Firestore successfully")
+            except Exception as db_error:
+                print(f"🔴 Discord: Firestore save failed: {db_error}")
+                raise HTTPException(status_code=500, detail=f"Database save failed: {str(db_error)}")
 
             return {
                 "success": True,
@@ -157,6 +182,9 @@ async def discord_callback(data: DiscordLinkRequest):
 
 @router.get("/user/{uid}")
 async def get_discord_user(uid: str):
+    # Check cache first
+    if is_cache_valid(uid):
+        return get_cache(uid)
 
     from auth import db
 
@@ -167,17 +195,19 @@ async def get_discord_user(uid: str):
         .get()
 
     if not discord_doc.exists:
-        return {
-            "connected": False
-        }
+        result = {"connected": False}
+        set_cache(uid, result)
+        return result
 
     data = discord_doc.to_dict()
 
-    return {
+    result = {
         "connected": True,
         "discord_username": data.get("discord_username"),
         "discord_email": data.get("discord_email")
     }
+    set_cache(uid, result)
+    return result
 
 
 # =========================
@@ -207,7 +237,7 @@ async def get_user_guilds(uid: str):
 
         access_token = data.get("access_token")
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
 
             response = await client.get(
                 DISCORD_GUILDS_URL,
@@ -257,7 +287,7 @@ async def get_guild_channels(uid: str, guild_id: str):
                 "error": "Bot token missing"
             }
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
 
             response = await client.get(
                 f"{DISCORD_API_BASE}/guilds/{guild_id}/channels",
@@ -319,7 +349,7 @@ async def get_discord_messages(
 
         print(f"🔵 Fetching Discord messages for {uid}, guild_id={guild_id}, channel_id={channel_id}")
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
 
             # ── CASE 1: specific channel via bot token ──────────────────────
             if channel_id and bot_token:
