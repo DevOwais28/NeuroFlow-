@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     # LinkedIn OAuth2 Settings
     LINKEDIN_CLIENT_ID: Optional[str] = os.getenv("LINKEDIN_CLIENT_ID")
     LINKEDIN_CLIENT_SECRET: Optional[str] = os.getenv("LINKEDIN_CLIENT_SECRET")
-    LINKEDIN_REDIRECT_URI: str = os.getenv("LINKEDIN_REDIRECT_URI", "http://localhost:8000/linkedin/callback")
+    LINKEDIN_REDIRECT_URI: str = os.getenv("LINKEDIN_REDIRECT_URI", "https://neuroflow-production-845c.up.railway.app/linkedin/callback")
 
     @property
     def cors_origins_list(self) -> list:
