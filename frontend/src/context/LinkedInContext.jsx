@@ -19,13 +19,21 @@ export function LinkedInProvider({ children }) {
     const uid = getUid();
     if (!uid) return;
     try {
-      const res = await fetch(`${API_URL}/linkedin/status/${uid}`);
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 8000);
+
+      const res = await fetch(`${API_URL}/linkedin/status/${uid}`, {
+        signal: controller.signal
+      });
+      clearTimeout(id);
+
       if (!res.ok) return;
       const data = await res.json();
       setIsConnected(data.connected || false);
       if (data.profile) setLinkedInUser(data.profile);
     } catch (e) {
-      console.warn("LinkedIn status check failed:", e);
+      if (e.name === 'AbortError') console.warn("LinkedIn status check timed out");
+      else console.warn("LinkedIn status check failed:", e);
     }
   }, []);
 

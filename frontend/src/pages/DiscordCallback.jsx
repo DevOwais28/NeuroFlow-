@@ -50,10 +50,16 @@ export default function DiscordCallback() {
       try {
         setStatus("Linking your Discord account…");
 
+        const REDIRECT_URI = `${window.location.origin}/discord/callback`;
+
         const res = await fetch(`${API_URL}/discord/callback`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ uid, code }),
+          body: JSON.stringify({ 
+            uid, 
+            code,
+            redirect_uri: REDIRECT_URI
+          }),
         });
 
         if (!res.ok) {

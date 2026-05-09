@@ -42,7 +42,7 @@ export const GoogleProvider = ({ children }) => {
     try {
       const token = await u.getIdToken();
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
 
       const res = await fetch(`${API_URL}/google/status/${u.uid}`, {
         headers: { Authorization: `Bearer ${token}` },
