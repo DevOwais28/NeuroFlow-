@@ -3,19 +3,52 @@ from pydantic import BaseModel
 from typing import Optional
 from config import settings
 import firebase_admin
+import os
 from firebase_admin import credentials, auth, firestore
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # --- Firebase Admin Init ---
-try:
-    cred = credentials.Certificate("serviceAccountKey.json")
-    firebase_admin.initialize_app(cred)
-    db = firestore.client()
-    print("Firebase Admin initialized")
-except Exception as e:
-    print(f"Firebase init error: {e}")
-    db = None
+def initialize_firebase():
+    global db
+    try:
+        # 1. Try serviceAccountKey.json file first
+        if os.path.exists("serviceAccountKey.json"):
+            cred = credentials.Certificate("serviceAccountKey.json")
+            firebase_admin.initialize_app(cred)
+            print("Firebase Admin initialized from serviceAccountKey.json")
+        else:
+            # 2. Fallback to environment variables
+            private_key = settings.FIREBASE_PRIVATE_KEY
+            if private_key:
+                # Handle escaped newlines in env var
+                private_key = private_key.replace("\\n", "\n")
+                
+                cred_dict = {
+                    "type": "service_account",
+                    "project_id": settings.FIREBASE_PROJECT_ID,
+                    "private_key_id": settings.FIREBASE_PRIVATE_KEY_ID,
+                    "private_key": private_key,
+                    "client_email": settings.FIREBASE_CLIENT_EMAIL,
+                    "client_id": settings.FIREBASE_CLIENT_ID,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                    "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{settings.FIREBASE_CLIENT_EMAIL}"
+                }
+                cred = credentials.Certificate(cred_dict)
+                firebase_admin.initialize_app(cred)
+                print(f"✅ Firebase Admin initialized from environment variables (Project: {settings.FIREBASE_PROJECT_ID})")
+            else:
+                print("🔴 Firebase Error: No credentials found (FIREBASE_PRIVATE_KEY is missing)")
+                return None
+        
+        return firestore.client()
+    except Exception as e:
+        print(f"Firebase init error: {e}")
+        return None
+
+db = initialize_firebase()
 
 
 # --- Models ---

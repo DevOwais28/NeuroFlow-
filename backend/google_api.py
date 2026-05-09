@@ -10,6 +10,15 @@ import httpx
 from datetime import datetime, timezone
 
 router = APIRouter()
+ 
+def get_db():
+    from auth import db
+    if db is None:
+        raise HTTPException(
+            status_code=500, 
+            detail="Firestore not initialized. Check your Firebase environment variables (FIREBASE_PRIVATE_KEY, etc.) in Railway."
+        )
+    return db
 
 # Google OAuth2 URLs
 GOOGLE_AUTH_URL    = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -32,6 +41,7 @@ GOOGLE_SCOPES = (
 class GoogleLinkRequest(BaseModel):
     code: str
     uid: str
+    redirect_uri: Optional[str] = None
 
 # =========================
 # HELPERS
@@ -56,7 +66,7 @@ async def _refresh_access_token(refresh_token: str) -> Optional[str]:
 
 async def _get_valid_token(uid: str) -> Optional[str]:
     """Return a valid access token, refreshing if needed."""
-    from auth import db
+    db = get_db()
 
     doc = db.collection("users").document(uid).collection("connections").document("google").get()
     if not doc.exists:
@@ -117,27 +127,39 @@ async def google_callback(data: GoogleLinkRequest):
     try:
         async with httpx.AsyncClient() as client:
 
+            # Use the redirect_uri from frontend if provided, otherwise fallback to settings
+            redirect_uri = data.redirect_uri or settings.GOOGLE_REDIRECT_URI
+            print(f"🔵 Using redirect_uri: {redirect_uri}")
+
             # Exchange code for tokens
-            token_res = await client.post(GOOGLE_TOKEN_URL, data={
-                "client_id":     settings.GOOGLE_CLIENT_ID,
-                "client_secret": settings.GOOGLE_CLIENT_SECRET,
-                "grant_type":    "authorization_code",
-                "code":          data.code,
-                "redirect_uri":  settings.GOOGLE_REDIRECT_URI,
-            })
+            print(f"🔵 Google: Starting token exchange for UID: {data.uid}...")
+            token_res = await client.post(
+                GOOGLE_TOKEN_URL, 
+                data={
+                    "client_id":     settings.GOOGLE_CLIENT_ID,
+                    "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                    "grant_type":    "authorization_code",
+                    "code":          data.code,
+                    "redirect_uri":  redirect_uri,
+                },
+                timeout=15.0
+            )
+            print(f"🔵 Google: Token exchange status: {token_res.status_code}")
 
             if token_res.status_code != 200:
                 print(f"🔴 Google token exchange failed: {token_res.text}")
                 raise HTTPException(status_code=400, detail=f"Token exchange failed: {token_res.text}")
 
-            tokens = token_res.json()
-            access_token  = tokens.get("access_token")
-            refresh_token = tokens.get("refresh_token")
+            token_data = token_res.json()
+            print("🔵 Google: Successfully received tokens")
+            access_token  = token_data.get("access_token")
+            refresh_token = token_data.get("refresh_token")
 
-            # Get user profile
+            # Get user profile (with increased timeout)
             user_res = await client.get(
                 GOOGLE_USERINFO_URL,
-                headers={"Authorization": f"Bearer {access_token}"}
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=15.0
             )
 
             if user_res.status_code != 200:
@@ -147,17 +169,22 @@ async def google_callback(data: GoogleLinkRequest):
 
         # Store in Firestore
         try:
-            from auth import db
+            db = get_db()
             if db:
+                print(f"🔵 Google: Saving credentials to Firestore for user: {data.uid}")
                 db.collection("users").document(data.uid).collection("connections").document("google").set({
                     "access_token":  access_token,
                     "refresh_token": refresh_token,
+                    "token_uri":     GOOGLE_TOKEN_URL,
+                    "client_id":     settings.GOOGLE_CLIENT_ID,
+                    "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                    "scopes":        token_data.get("scope", "").split(" "),
+                    "connected_at":  datetime.now(timezone.utc).isoformat(),
                     "email":         user_data.get("email"),
                     "name":          user_data.get("name"),
-                    "picture":       user_data.get("picture"),
-                    "connected_at":  datetime.now(timezone.utc).isoformat(),
+                    "picture":       user_data.get("picture")
                 }, merge=True)
-                print(f"✅ Google connected for uid={data.uid}: {user_data.get('email')}")
+                print("✅ Google: Firestore update successful")
             else:
                 print(f"🔴 Firestore db not available")
                 raise HTTPException(status_code=500, detail="Database not initialized")
@@ -187,7 +214,7 @@ async def google_callback(data: GoogleLinkRequest):
 @router.get("/status/{uid}")
 async def get_google_status(uid: str):
     try:
-        from auth import db
+        db = get_db()
         doc = db.collection("users").document(uid).collection("connections").document("google").get()
 
         if not doc.exists:
@@ -254,8 +281,9 @@ async def get_emails(uid: str, limit: int = 10):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"🔴 Gmail fetch error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"🔴 Google callback exception: {str(e)}")
+        # Include the actual error message to help debug
+        raise HTTPException(status_code=500, detail=f"Google Callback Error: {str(e)}")
 
 # =========================
 # CALENDAR EVENTS
@@ -309,8 +337,8 @@ async def get_calendar_events(uid: str, limit: int = 10):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"🔴 Calendar fetch error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"🔴 Google callback exception: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Google Callback Error: {str(e)}")
 
 # =========================
 # DISCONNECT
@@ -319,7 +347,7 @@ async def get_calendar_events(uid: str, limit: int = 10):
 @router.post("/disconnect/{uid}")
 async def disconnect_google(uid: str):
     try:
-        from auth import db
+        db = get_db()
         db.collection("users").document(uid).collection("connections").document("google").delete()
         return {"success": True}
     except Exception as e:

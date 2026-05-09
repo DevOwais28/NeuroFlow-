@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
     # CORS
-    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,https://neuro-flow-psi.vercel.app")
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,https://neuro-flow-psi.vercel.app,https://neuro-flow-dg5a.vercel.app")
 
     # Discord OAuth2 Settings
     DISCORD_CLIENT_ID: Optional[str] = os.getenv("DISCORD_CLIENT_ID")
@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     # LinkedIn OAuth2 Settings
     LINKEDIN_CLIENT_ID: Optional[str] = os.getenv("LINKEDIN_CLIENT_ID")
     LINKEDIN_CLIENT_SECRET: Optional[str] = os.getenv("LINKEDIN_CLIENT_SECRET")
-    LINKEDIN_REDIRECT_URI: str = os.getenv("LINKEDIN_REDIRECT_URI", "https://neuroflow-production-845c.up.railway.app/linkedin/callback")
+    LINKEDIN_REDIRECT_URI: str = os.getenv("LINKEDIN_REDIRECT_URI", "https://neuro-flow-psi.vercel.app/linkedin/callback")
 
     @property
     def cors_origins_list(self) -> list:

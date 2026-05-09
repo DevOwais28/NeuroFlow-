@@ -10,16 +10,21 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse, HTMLResponse
 from config import settings
 from firebase_admin import firestore
-import requests
+import httpx
 import urllib.parse
 
 router = APIRouter()
+ 
+def get_db():
+    from auth import db
+    if db is None:
+        raise HTTPException(
+            status_code=500, 
+            detail="Firestore not initialized. Check your Firebase environment variables (FIREBASE_PRIVATE_KEY, etc.) in Railway."
+        )
+    return db
 
-# Firestore client (reuse from auth.py initialization)
-try:
-    db = firestore.client()
-except Exception:
-    db = None
+# =========================
 
 
 # =========================
@@ -86,26 +91,34 @@ async def linkedin_callback(
     if not code:
         raise HTTPException(status_code=400, detail="Authorization code missing from LinkedIn callback.")
 
-    if not uid or uid == "undefined":
-        raise HTTPException(status_code=400, detail="User ID is missing. Please log in again.")
-
+    print(f"🔵 LinkedIn Callback: Received code for UID: {uid}")
     if not settings.LINKEDIN_CLIENT_ID or not settings.LINKEDIN_CLIENT_SECRET:
+        print("🔴 LinkedIn Error: Credentials not configured")
         raise HTTPException(status_code=500, detail="LinkedIn credentials not configured")
 
     # Exchange code for access token
-    token_resp = requests.post(
-        "https://www.linkedin.com/oauth/v2/accessToken",
-        data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": settings.LINKEDIN_REDIRECT_URI,
-            "client_id": settings.LINKEDIN_CLIENT_ID,
-            "client_secret": settings.LINKEDIN_CLIENT_SECRET,
-        },
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-    ).json()
+    print(f"🔵 LinkedIn: Exchanging code with redirect_uri: {settings.LINKEDIN_REDIRECT_URI}")
+    async with httpx.AsyncClient() as client:
+        try:
+            token_resp_raw = await client.post(
+                "https://www.linkedin.com/oauth/v2/accessToken",
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": settings.LINKEDIN_REDIRECT_URI,
+                    "client_id": settings.LINKEDIN_CLIENT_ID,
+                    "client_secret": settings.LINKEDIN_CLIENT_SECRET,
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=15.0
+            )
+            token_resp = token_resp_raw.json()
+        except Exception as e:
+            print(f"🔴 LinkedIn Error during token exchange: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Token exchange failed: {str(e)}")
 
     if "access_token" not in token_resp:
+        print(f"🔴 LinkedIn token exchange failed: {token_resp}")
         raise HTTPException(status_code=400, detail=token_resp.get("error_description", "OAuth failed"))
 
     access_token = token_resp["access_token"]
@@ -114,72 +127,78 @@ async def linkedin_callback(
     #     then fall back to OpenID /userinfo (requires openid product) ---
     auth_headers = {"Authorization": f"Bearer {access_token}"}
 
-    # Try the current v2/me endpoint
-    me_resp = requests.get(
-        "https://api.linkedin.com/v2/me",
-        headers={**auth_headers, "X-Restli-Protocol-Version": "2.0.0"},
-    )
-
-    linkedin_id = ""
-    name = ""
-    email = ""
-    picture = ""
-
-    if me_resp.status_code == 200:
-        me = me_resp.json()
-        linkedin_id = me.get("id", "")
-        fn = me.get("firstName", {}).get("localized", {})
-        ln = me.get("lastName", {}).get("localized", {})
-        name = f"{list(fn.values())[0] if fn else ''} {list(ln.values())[0] if ln else ''}".strip()
-        # Try to get profile picture
-        pic_data = me.get("profilePicture", {}).get("displayImage~", {}).get("elements", [])
-        if pic_data:
-            identifiers = pic_data[-1].get("identifiers", [])
-            if identifiers:
-                picture = identifiers[0].get("identifier", "")
-    else:
-        # Fallback: try OpenID Connect userinfo endpoint
-        userinfo_resp = requests.get("https://api.linkedin.com/v2/userinfo", headers=auth_headers)
-        if userinfo_resp.status_code == 200:
-            profile = userinfo_resp.json()
-            linkedin_id = profile.get("sub", "")
-            name = profile.get("name", "")
-            email = profile.get("email", "")
-            picture = profile.get("picture", "")
-        else:
-            print(f"🟡 LinkedIn: could not fetch profile (me={me_resp.status_code}, userinfo={userinfo_resp.status_code})")
-            linkedin_id = ""
-            name = "LinkedIn User"
-
-    # Try to get email separately if we have it via userinfo scope
-    if not email:
-        email_resp = requests.get(
-            "https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))",
-            headers=auth_headers,
+    async with httpx.AsyncClient() as client:
+        # Try the current v2/me endpoint
+        me_resp = await client.get(
+            "https://api.linkedin.com/v2/me",
+            headers={**auth_headers, "X-Restli-Protocol-Version": "2.0.0"},
+            timeout=10.0
         )
-        if email_resp.status_code == 200:
-            elements = email_resp.json().get("elements", [])
-            if elements:
-                email = elements[0].get("handle~", {}).get("emailAddress", "")
+
+        linkedin_id = ""
+        name = ""
+        email = ""
+        picture = ""
+
+        if me_resp.status_code == 200:
+            me = me_resp.json()
+            linkedin_id = me.get("id", "")
+            fn = me.get("firstName", {}).get("localized", {})
+            ln = me.get("lastName", {}).get("localized", {})
+            name = f"{list(fn.values())[0] if fn else ''} {list(ln.values())[0] if ln else ''}".strip()
+            pic_data = me.get("profilePicture", {}).get("displayImage~", {}).get("elements", [])
+            if pic_data:
+                identifiers = pic_data[-1].get("identifiers", [])
+                if identifiers:
+                    picture = identifiers[0].get("identifier", "")
+        else:
+            # Fallback: try OpenID Connect userinfo endpoint
+            userinfo_resp = await client.get("https://api.linkedin.com/v2/userinfo", headers=auth_headers, timeout=10.0)
+            if userinfo_resp.status_code == 200:
+                profile = userinfo_resp.json()
+                linkedin_id = profile.get("sub", "")
+                name = profile.get("name", "")
+                email = profile.get("email", "")
+                picture = profile.get("picture", "")
+
+        # Try to get email separately if we have it via userinfo scope
+        if not email:
+            email_resp = await client.get(
+                "https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))",
+                headers=auth_headers,
+                timeout=10.0
+            )
+            if email_resp.status_code == 200:
+                elements = email_resp.json().get("elements", [])
+                if elements:
+                    email = elements[0].get("handle~", {}).get("emailAddress", "")
 
     print(f"✅ LinkedIn connected for user {uid} (LinkedIn ID: {linkedin_id})")
 
-    # Store in Firestore
+    # Store in Firestore with retry logic
+    db = get_db()
     if db:
-        try:
-            li_ref = db.collection("users").document(uid).collection("connections").document("linkedin")
-            li_ref.set({
-                "access_token": access_token,
-                "linkedin_id": linkedin_id,
-                "name": name,
-                "email": email,
-                "picture": picture,
-                "connected": True,
-                "connected_at": firestore.SERVER_TIMESTAMP,
-            }, merge=True)
-        except Exception as e:
-            print(f"🔴 Firestore Error: {e}")
-            raise HTTPException(status_code=500, detail="Failed to save connection")
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                li_ref = db.collection("users").document(uid).collection("connections").document("linkedin")
+                li_ref.set({
+                    "access_token": access_token,
+                    "linkedin_id": linkedin_id,
+                    "name": name,
+                    "email": email,
+                    "picture": picture,
+                    "connected": True,
+                    "connected_at": firestore.SERVER_TIMESTAMP,
+                }, merge=True)
+                print(f"✅ LinkedIn saved to Firestore on attempt {attempt + 1}")
+                break
+            except Exception as e:
+                print(f"🔴 LinkedIn Firestore Error (attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt == max_retries - 1:
+                    raise HTTPException(status_code=500, detail=f"Failed to save connection after retries: {str(e)}")
+                import time
+                time.sleep(1)
 
     return HTMLResponse(content=f"""
         <html>
@@ -207,6 +226,7 @@ async def linkedin_callback(
 
 @router.get("/status/{uid}")
 async def linkedin_status(uid: str):
+    db = get_db()
     if not db:
         return {"connected": False}
     try:
@@ -236,6 +256,7 @@ async def linkedin_status(uid: str):
 @router.get("/posts/{uid}")
 async def get_linkedin_posts(uid: str, limit: int = 10):
     """Fetch recent LinkedIn posts/shares for the user"""
+    db = get_db()
     if not db:
         raise HTTPException(status_code=500, detail="Database not available")
     
@@ -303,6 +324,7 @@ async def get_linkedin_posts(uid: str, limit: int = 10):
 
 @router.post("/disconnect/{uid}")
 async def disconnect_linkedin(uid: str):
+    db = get_db()
     if not db:
         return {"success": True}
     try:
