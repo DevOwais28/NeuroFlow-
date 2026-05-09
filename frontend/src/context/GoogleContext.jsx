@@ -35,8 +35,9 @@ export const GoogleProvider = ({ children }) => {
   // =========================
   const fetchGoogleStatus = useCallback(async (currentUser) => {
     const u = currentUser || user;
-    if (!u || statusLock.current) return;
+    if (!u || statusLock.current || hasFetchedStatus.current) return;
     statusLock.current = true;
+    hasFetchedStatus.current = true;
     setLoading(true);
 
     try {
