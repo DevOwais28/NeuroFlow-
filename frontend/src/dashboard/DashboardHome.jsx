@@ -406,9 +406,9 @@ export default function DashboardHome() {
                 Connect Discord to start receiving AI-powered summaries
               </div>
               <button
-                onClick={() => {
+                onClick={async () => {
                   try {
-                    const url = getDiscordAuthUrl();
+                    const url = await getDiscordAuthUrl();
                     window.location.replace(url);
                   } catch (e) {
                     console.error("Discord auth failed:", e);
