@@ -48,7 +48,7 @@ export function LinkedInProvider({ children }) {
     }
   }, []);
 
-  // Force refresh status (for use after OAuth callback)
+  // Force refresh status (for use after OAuth callback) - defined AFTER checkStatus
   const forceRefreshStatus = useCallback(async () => {
     hasFetchedStatus.current = false;
     statusLock.current = false;
