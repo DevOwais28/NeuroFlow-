@@ -638,7 +638,7 @@ export default function DashboardHome() {
                 </div>
               </div>
 
-              {/* LinkedIn Activity */}
+              {/* LinkedIn Quick Links */}
               <div style={{
                 padding: "14px 16px",
                 borderRadius: 12,
@@ -646,59 +646,35 @@ export default function DashboardHome() {
                 border: "1px solid rgba(255,255,255,0.05)",
                 marginBottom: 16,
               }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Activity</div>
-                  <span
-                    onClick={() => fetchLinkedInPosts()}
-                    style={{ fontSize: "0.68rem", color: "#0A66C2", cursor: "pointer" }}
-                  >
-                    ↻ refresh
-                  </span>
+                <div style={{ fontSize: "0.75rem", color: "#64748b", marginBottom: 10 }}>Quick Links</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                  {[
+                    { label: "📰 My Feed",        href: "https://www.linkedin.com/feed/" },
+                    { label: "🔔 Notifications",  href: "https://www.linkedin.com/notifications/" },
+                    { label: "💬 Messages",       href: "https://www.linkedin.com/messaging/" },
+                    { label: "🤝 My Network",     href: "https://www.linkedin.com/mynetwork/" },
+                  ].map(link => (
+                    <a
+                      key={link.label}
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: "flex", alignItems: "center", gap: 8,
+                        padding: "9px 12px", borderRadius: 8,
+                        background: "rgba(10,102,194,0.05)",
+                        border: "1px solid rgba(10,102,194,0.12)",
+                        color: "#0A66C2", fontSize: "0.82rem", fontWeight: 600,
+                        textDecoration: "none", transition: "all 0.15s",
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(10,102,194,0.12)"; e.currentTarget.style.borderColor = "rgba(10,102,194,0.3)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "rgba(10,102,194,0.05)"; e.currentTarget.style.borderColor = "rgba(10,102,194,0.12)"; }}
+                    >
+                      {link.label}
+                      <svg style={{ marginLeft: "auto", opacity: 0.4 }} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    </a>
+                  ))}
                 </div>
-
-                {linkedInPostsUnavailable ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                    {[
-                      { label: "📰 My Feed",        href: "https://www.linkedin.com/feed/" },
-                      { label: "🔔 Notifications",  href: "https://www.linkedin.com/notifications/" },
-                      { label: "💬 Messages",       href: "https://www.linkedin.com/messaging/" },
-                      { label: "🤝 My Network",     href: "https://www.linkedin.com/mynetwork/" },
-                    ].map(link => (
-                      <a
-                        key={link.label}
-                        href={link.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: "flex", alignItems: "center", gap: 8,
-                          padding: "9px 12px", borderRadius: 8,
-                          background: "rgba(10,102,194,0.05)",
-                          border: "1px solid rgba(10,102,194,0.12)",
-                          color: "#0A66C2", fontSize: "0.82rem", fontWeight: 600,
-                          textDecoration: "none", transition: "all 0.15s",
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.background = "rgba(10,102,194,0.12)"; e.currentTarget.style.borderColor = "rgba(10,102,194,0.3)"; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = "rgba(10,102,194,0.05)"; e.currentTarget.style.borderColor = "rgba(10,102,194,0.12)"; }}
-                      >
-                        {link.label}
-                        <svg style={{ marginLeft: "auto", opacity: 0.4 }} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                      </a>
-                    ))}
-                  </div>
-                ) : linkedInPosts.length > 0 ? linkedInPosts.slice(0, 3).map((p, i) => (
-                  <div key={p.id || i} style={{
-                    marginBottom: 10, padding: "8px 10px", borderRadius: 8,
-                    background: "rgba(10,102,194,0.04)", border: "1px solid rgba(10,102,194,0.08)",
-                  }}>
-                    <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: 1.4 }}>
-                      {(p.text || "").substring(0, 80)}{(p.text?.length || 0) > 80 ? "…" : ""}
-                    </div>
-                  </div>
-                )) : (
-                  <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", textAlign: "center", padding: "10px 0" }}>
-                    No activity loaded
-                  </div>
-                )}
               </div>
 
               <button
