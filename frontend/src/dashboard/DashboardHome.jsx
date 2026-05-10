@@ -527,7 +527,7 @@ export default function DashboardHome() {
               </div>
 
               <button
-                onClick={disconnectDiscord}
+                onClick={disconnectGoogle}
                 style={{
                   width: "100%",
                   padding: "8px 14px",
@@ -540,7 +540,7 @@ export default function DashboardHome() {
                   cursor: "pointer",
                 }}
               >
-                Disconnect Discord
+                Disconnect Google
               </button>
             </>
           ) : (
@@ -553,31 +553,31 @@ export default function DashboardHome() {
             }}>
               <div style={{ fontSize: "2rem", marginBottom: 12 }}>🔌</div>
               <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: 12 }}>
-                Connect Discord to start receiving AI-powered summaries
+                Connect Google to see Gmail and Calendar
               </div>
               <button
-                onClick={async () => {
+                onClick={() => {
                   try {
-                    const url = await getDiscordAuthUrl();
-                    window.location.href = url;
+                    const url = getGoogleAuthUrl();
+                    window.location.replace(url);
                   } catch (e) {
-                    console.error("Discord auth failed:", e);
+                    console.error("Google auth failed:", e);
                     alert("Error: " + e.message);
                   }
                 }}
                 style={{
                   padding: "8px 18px",
                   borderRadius: 8,
-                  background: "linear-gradient(135deg, #4DEEEA22, #a78bfa22)",
-                  border: "1px solid rgba(77,238,234,0.3)",
-                  color: "#4DEEEA",
+                  background: "linear-gradient(135deg, #4285F422, #34A85322)",
+                  border: "1px solid rgba(66,133,244,0.3)",
+                  color: "#4285F4",
                   fontSize: "0.8rem",
                   fontWeight: 600,
                   cursor: "pointer",
                   transition: "all 0.2s",
                 }}
               >
-                Connect Discord →
+                Connect Google →
               </button>
             </div>
           )}
