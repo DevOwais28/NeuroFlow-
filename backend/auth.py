@@ -15,6 +15,8 @@ def initialize_firebase():
         # 1. Try environment variables FIRST (works on Vercel)
         private_key = settings.FIREBASE_PRIVATE_KEY
         if private_key:
+            # Strip surrounding quotes if present
+            private_key = private_key.strip().strip('"').strip("'")
             # Handle escaped newlines in env var
             private_key = private_key.replace("\\n", "\n")
             
