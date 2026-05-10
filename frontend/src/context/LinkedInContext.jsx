@@ -15,6 +15,7 @@ export function LinkedInProvider({ children }) {
   const getUid = () => auth.currentUser?.uid;
   const statusLock = useRef(false);
   const hasFetchedStatus = useRef(false);
+  const hasAutoFetchedPosts = useRef(false);
 
   // Check connection status on mount / auth change
   const checkStatus = useCallback(async () => {
@@ -47,6 +48,13 @@ export function LinkedInProvider({ children }) {
     }
   }, []);
 
+  // Force refresh status (for use after OAuth callback)
+  const forceRefreshStatus = useCallback(async () => {
+    hasFetchedStatus.current = false;
+    statusLock.current = false;
+    await checkStatus();
+  }, [checkStatus]);
+
   useEffect(() => {
     const unsub = auth.onAuthStateChanged((user) => {
       if (user) {
@@ -59,6 +67,21 @@ export function LinkedInProvider({ children }) {
     });
     return unsub;
   }, [checkStatus]);
+
+  // Auto-fetch posts when LinkedIn connects
+  useEffect(() => {
+    if (isConnected && !hasAutoFetchedPosts.current) {
+      hasAutoFetchedPosts.current = true;
+      fetchPosts();
+    }
+  }, [isConnected, fetchPosts]);
+
+  // Reset auto-fetch flag on disconnect
+  useEffect(() => {
+    if (!isConnected) {
+      hasAutoFetchedPosts.current = false;
+    }
+  }, [isConnected]);
 
   // LinkedIn OAuth URL
   const getLinkedInAuthUrl = useCallback(() => {
@@ -115,7 +138,7 @@ export function LinkedInProvider({ children }) {
   return (
     <LinkedInContext.Provider value={{
       isConnected, linkedInUser, posts, postsUnavailable, loading,
-      getLinkedInAuthUrl, fetchPosts, disconnectLinkedIn, checkStatus,
+      getLinkedInAuthUrl, fetchPosts, disconnectLinkedIn, checkStatus, forceRefreshStatus,
     }}>
       {children}
     </LinkedInContext.Provider>

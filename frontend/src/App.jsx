@@ -8,6 +8,7 @@ import Signup from './pages/Signup'
 import Login from './pages/Login'
 import DiscordCallback from './pages/DiscordCallback'
 import GoogleCallback from './pages/GoogleCallback'
+import LinkedInCallback from './pages/LinkedInCallback'
 import ProtectedRoute from './components/ProtectedRoute'
 import DashboardLayout from './dashboard/DashboardLayout'
 import DashboardHome from './dashboard/DashboardHome'
@@ -30,6 +31,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/discord/callback" element={<DiscordCallback />} />
         <Route path="/google/callback" element={<GoogleCallback />} />
+        <Route path="/linkedin/callback" element={<LinkedInCallback />} />
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <DashboardLayout />

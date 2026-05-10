@@ -30,6 +30,13 @@ export const GoogleProvider = ({ children }) => {
     return unsub;
   }, []);
 
+  // Force refresh status (for use after OAuth callback)
+  const forceRefreshStatus = useCallback(async () => {
+    hasFetchedStatus.current = false;
+    statusLock.current = false;
+    await fetchGoogleStatus();
+  }, [fetchGoogleStatus]);
+
   // =========================
   // STATUS
   // =========================
@@ -60,6 +67,7 @@ export const GoogleProvider = ({ children }) => {
 
       const data = await res.json();
       setIsConnected(!!data.connected);
+      console.log("🟢 Google status response:", data);
       if (data.connected) {
         setGoogleUser({ email: data.email, name: data.name, picture: data.picture });
       } else {
@@ -200,6 +208,7 @@ export const GoogleProvider = ({ children }) => {
     loading,
     error,
     fetchGoogleStatus,
+    forceRefreshStatus,
     getGoogleAuthUrl,
     fetchEmails,
     fetchEvents,

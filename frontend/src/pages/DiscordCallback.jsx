@@ -9,7 +9,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 export default function DiscordCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { fetchDiscordStatus } = useDiscord();
+  const { forceRefreshStatus } = useDiscord();
   const [status, setStatus] = useState("Connecting to Discord...");
   const [error, setError] = useState(null);
   const processed = useRef(false);
@@ -69,8 +69,8 @@ export default function DiscordCallback() {
 
         const data = await res.json();
 
-        // Refresh the global context so UI reflects connected state immediately
-        await fetchDiscordStatus();
+        // Force refresh status so UI reflects connected state immediately
+        await forceRefreshStatus();
 
         setStatus(`✅ Connected as @${data.discord_username || "you"}!`);
         setTimeout(() => navigate("/dashboard/profile"), 1500);
@@ -82,7 +82,7 @@ export default function DiscordCallback() {
     });
 
     return () => unsubscribe();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [forceRefreshStatus]); // eslint-disable-line react-hooks/exhaustive-deps
   // ^ Empty deps intentional: runs once on mount, reads URL params directly
 
   return (

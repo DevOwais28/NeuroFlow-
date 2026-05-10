@@ -44,6 +44,13 @@ export function DiscordProvider({ children }) {
     hasFetchedStatus.current = false;
   }, [user?.uid]);
 
+  // Force refresh status (for use after OAuth callback)
+  const forceRefreshStatus = useCallback(async () => {
+    hasFetchedStatus.current = false;
+    statusLock.current = false;
+    await fetchDiscordStatus();
+  }, [fetchDiscordStatus]);
+
   // =========================
   // DISCORD STATUS
   // =========================
@@ -71,6 +78,11 @@ export function DiscordProvider({ children }) {
 
       const data = await res.json();
       setDiscordUser(data.connected ? data : null);
+
+      // Auto-fetch guilds if connected (for page reload case)
+      if (data.connected) {
+        refreshGuilds();
+      }
     } catch (err) {
       if (err.name === 'AbortError') console.warn("Discord status check timed out");
       else console.error("Discord status check error:", err);
@@ -155,6 +167,9 @@ export function DiscordProvider({ children }) {
           discord_username: data.discord_username,
           discord_email: data.discord_email,
         });
+
+        // Auto-fetch guilds after connecting
+        refreshGuilds();
 
         return data;
       } finally {
@@ -284,6 +299,7 @@ export function DiscordProvider({ children }) {
       getDiscordAuthUrl,
       getBotInviteUrl,
       fetchDiscordStatus,
+      forceRefreshStatus,
       isConnected: !!discordUser?.connected,
     }),
     [
@@ -299,6 +315,7 @@ export function DiscordProvider({ children }) {
       getDiscordAuthUrl,
       getBotInviteUrl,
       fetchDiscordStatus,
+      forceRefreshStatus,
     ]
   );
 

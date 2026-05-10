@@ -9,7 +9,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 export default function GoogleCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { fetchGoogleStatus } = useGoogle();
+  const { forceRefreshStatus } = useGoogle();
   const [status, setStatus] = useState("Connecting to Google...");
   const [error, setError] = useState(null);
   const processed = useRef(false);
@@ -72,7 +72,7 @@ export default function GoogleCallback() {
         }
 
         const data = await res.json();
-        await fetchGoogleStatus();
+        await forceRefreshStatus();
 
         setStatus(`✅ Connected as ${data.email || "you"}!`);
         setTimeout(() => navigate("/dashboard/profile"), 1500);
@@ -84,7 +84,7 @@ export default function GoogleCallback() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [searchParams, navigate, forceRefreshStatus]);
 
   return (
     <div style={{
