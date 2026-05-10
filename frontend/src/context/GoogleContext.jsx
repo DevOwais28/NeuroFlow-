@@ -30,13 +30,6 @@ export const GoogleProvider = ({ children }) => {
     return unsub;
   }, []);
 
-  // Force refresh status (for use after OAuth callback)
-  const forceRefreshStatus = useCallback(async () => {
-    hasFetchedStatus.current = false;
-    statusLock.current = false;
-    await fetchGoogleStatus();
-  }, [fetchGoogleStatus]);
-
   // =========================
   // STATUS
   // =========================
@@ -48,31 +41,14 @@ export const GoogleProvider = ({ children }) => {
     setLoading(true);
 
     try {
-      const token = await u.getIdToken();
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
-
-      const res = await fetch(`${API_URL}/google/status/${u.uid}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
+      const res = await fetch(`${API_URL}/google/status/${u.uid}`);
       if (!res.ok) {
-        setIsConnected(false);
-        setGoogleUser(null);
-        hasFetchedStatus.current = false; // retry on next attempt
+        hasFetchedStatus.current = false;
         return;
       }
-
       const data = await res.json();
-      setIsConnected(!!data.connected);
-      console.log("🟢 Google status response:", data);
-      if (data.connected) {
-        setGoogleUser({ email: data.email, name: data.name, picture: data.picture });
-      } else {
-        setGoogleUser(null);
-      }
+      setGoogleUser(data.connected ? { email: data.email, name: data.name, picture: data.picture } : null);
+      setIsConnected(data.connected);
     } catch (err) {
       console.error("Google status error:", err);
       setError(err.message);
@@ -82,6 +58,13 @@ export const GoogleProvider = ({ children }) => {
       setLoading(false);
     }
   }, [user]);
+
+  // Force refresh status (for use after OAuth callback) - defined AFTER fetchGoogleStatus
+  const forceRefreshStatus = useCallback(async () => {
+    hasFetchedStatus.current = false;
+    statusLock.current = false;
+    await fetchGoogleStatus();
+  }, [fetchGoogleStatus]);
 
   // Auto-fetch status when user is available
   useEffect(() => {
