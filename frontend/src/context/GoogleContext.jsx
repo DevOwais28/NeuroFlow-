@@ -54,6 +54,7 @@ export const GoogleProvider = ({ children }) => {
       if (!res.ok) {
         setIsConnected(false);
         setGoogleUser(null);
+        hasFetchedStatus.current = false; // retry on next attempt
         return;
       }
 
@@ -67,6 +68,7 @@ export const GoogleProvider = ({ children }) => {
     } catch (err) {
       console.error("Google status error:", err);
       setError(err.message);
+      hasFetchedStatus.current = false; // retry on next attempt
     } finally {
       statusLock.current = false;
       setLoading(false);
