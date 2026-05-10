@@ -55,6 +55,47 @@ export function LinkedInProvider({ children }) {
     await checkStatus();
   }, [checkStatus]);
 
+  // Fetch LinkedIn posts - defined BEFORE useEffect that calls it
+  const fetchPosts = useCallback(async () => {
+    const uid = getUid();
+    if (!uid || !isConnected) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/linkedin/posts/${uid}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPosts(data.posts || []);
+        setPostsUnavailable(data.posts_unavailable || false);
+      }
+    } catch (e) {
+      console.warn("Failed to fetch LinkedIn posts:", e);
+    } finally {
+      setLoading(false);
+    }
+  }, [isConnected]);
+
+  // LinkedIn OAuth URL
+  const getLinkedInAuthUrl = useCallback(() => {
+    const uid = getUid();
+    if (!uid) throw new Error("Not logged in");
+    return `${API_URL}/linkedin/install?uid=${uid}`;
+  }, []);
+
+  // Disconnect LinkedIn
+  const disconnectLinkedIn = useCallback(async () => {
+    const uid = getUid();
+    if (!uid) return;
+    try {
+      await fetch(`${API_URL}/linkedin/disconnect/${uid}`, { method: "POST" });
+    } catch (e) {
+      console.warn("Disconnect error:", e);
+    }
+    setIsConnected(false);
+    setLinkedInUser(null);
+    setPosts([]);
+    setPostsUnavailable(false);
+  }, []);
+
   useEffect(() => {
     const unsub = auth.onAuthStateChanged((user) => {
       if (user) {
@@ -82,47 +123,6 @@ export function LinkedInProvider({ children }) {
       hasAutoFetchedPosts.current = false;
     }
   }, [isConnected]);
-
-  // LinkedIn OAuth URL
-  const getLinkedInAuthUrl = useCallback(() => {
-    const uid = getUid();
-    if (!uid) throw new Error("Not logged in");
-    return `${API_URL}/linkedin/install?uid=${uid}`;
-  }, []);
-
-  // Fetch LinkedIn posts
-  const fetchPosts = useCallback(async () => {
-    const uid = getUid();
-    if (!uid || !isConnected) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/linkedin/posts/${uid}`);
-      if (res.ok) {
-        const data = await res.json();
-        setPosts(data.posts || []);
-        setPostsUnavailable(data.posts_unavailable || false);
-      }
-    } catch (e) {
-      console.warn("Failed to fetch LinkedIn posts:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [isConnected]);
-
-  // Disconnect LinkedIn
-  const disconnectLinkedIn = useCallback(async () => {
-    const uid = getUid();
-    if (!uid) return;
-    try {
-      await fetch(`${API_URL}/linkedin/disconnect/${uid}`, { method: "POST" });
-    } catch (e) {
-      console.warn("Disconnect error:", e);
-    }
-    setIsConnected(false);
-    setLinkedInUser(null);
-    setPosts([]);
-    setPostsUnavailable(false);
-  }, []);
 
   // Listen for OAuth popup message
   useEffect(() => {
