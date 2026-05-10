@@ -80,8 +80,7 @@ export const GoogleProvider = ({ children }) => {
 
   // Auto-fetch status when user is available
   useEffect(() => {
-    if (user && !hasFetchedStatus.current) {
-      hasFetchedStatus.current = true;
+    if (user) {
       fetchGoogleStatus(user);
     }
   }, [user, fetchGoogleStatus]);
