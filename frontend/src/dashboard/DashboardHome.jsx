@@ -375,6 +375,23 @@ export default function DashboardHome() {
                   </div>
                 )}
               </div>
+
+              <button
+                onClick={disconnectDiscord}
+                style={{
+                  width: "100%",
+                  padding: "8px 14px",
+                  borderRadius: 6,
+                  border: "1px solid rgba(239,68,68,0.3)",
+                  background: "rgba(239,68,68,0.08)",
+                  color: "#ef4444",
+                  fontSize: "0.78rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Disconnect Discord
+              </button>
             </div>
           ) : (
             <div style={{
