@@ -47,8 +47,10 @@ export const GoogleProvider = ({ children }) => {
         return;
       }
       const data = await res.json();
+      console.log("🔵 Google status response:", data);
       setGoogleUser(data.connected ? { email: data.email, name: data.name, picture: data.picture } : null);
       setIsConnected(data.connected);
+      console.log("🟢 Google state updated - connected:", data.connected);
     } catch (err) {
       console.error("Google status error:", err);
       setError(err.message);
@@ -63,8 +65,18 @@ export const GoogleProvider = ({ children }) => {
   const forceRefreshStatus = useCallback(async () => {
     hasFetchedStatus.current = false;
     statusLock.current = false;
-    await fetchGoogleStatus();
-  }, [fetchGoogleStatus]);
+    // Pass refresh=1 to skip backend cache
+    const u = user || auth.currentUser;
+    if (u) {
+      const res = await fetch(`${API_URL}/google/status/${u.uid}?refresh=1`);
+      if (res.ok) {
+        const data = await res.json();
+        console.log("🔵 Google force refresh response:", data);
+        setGoogleUser(data.connected ? { email: data.email, name: data.name, picture: data.picture } : null);
+        setIsConnected(data.connected);
+      }
+    }
+  }, [user]);
 
   // Auto-fetch status when user is available
   useEffect(() => {
