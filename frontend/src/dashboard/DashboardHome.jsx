@@ -405,10 +405,17 @@ export default function DashboardHome() {
               <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: 12 }}>
                 Connect Discord to start receiving AI-powered summaries
               </div>
-              <a
-                href="/dashboard/profile"
+              <button
+                onClick={() => {
+                  try {
+                    const url = getDiscordAuthUrl();
+                    window.location.replace(url);
+                  } catch (e) {
+                    console.error("Discord auth failed:", e);
+                    alert("Error: " + e.message);
+                  }
+                }}
                 style={{
-                  display: "inline-block",
                   padding: "8px 18px",
                   borderRadius: 8,
                   background: "linear-gradient(135deg, #4DEEEA22, #a78bfa22)",
@@ -416,12 +423,12 @@ export default function DashboardHome() {
                   color: "#4DEEEA",
                   fontSize: "0.8rem",
                   fontWeight: 600,
-                  textDecoration: "none",
+                  cursor: "pointer",
                   transition: "all 0.2s",
                 }}
               >
-                Connect Now →
-              </a>
+                Connect Discord →
+              </button>
             </div>
           )}
         </div>
