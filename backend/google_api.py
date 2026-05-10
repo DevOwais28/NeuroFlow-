@@ -226,9 +226,9 @@ async def google_callback(data: GoogleLinkRequest):
 # =========================
 
 @router.get("/status/{uid}")
-async def get_google_status(uid: str):
-    # Check cache first
-    if is_cache_valid(uid):
+async def get_google_status(uid: str, refresh: bool = False):
+    # Check cache first (skip if refresh requested)
+    if not refresh and is_cache_valid(uid):
         return get_cache(uid)
 
     try:
