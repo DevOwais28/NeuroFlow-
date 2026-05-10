@@ -71,11 +71,6 @@ export function DiscordProvider({ children }) {
 
       const data = await res.json();
       setDiscordUser(data.connected ? data : null);
-
-      // Auto-fetch guilds if connected (for page reload case)
-      if (data.connected) {
-        refreshGuilds();
-      }
     } catch (err) {
       if (err.name === 'AbortError') console.warn("Discord status check timed out");
       else console.error("Discord status check error:", err);
