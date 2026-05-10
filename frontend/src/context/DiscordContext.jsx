@@ -64,13 +64,18 @@ export function DiscordProvider({ children }) {
       });
       clearTimeout(id);
 
-      if (!res.ok) return;
+      if (!res.ok) {
+        hasFetchedStatus.current = false; // retry on next attempt
+        return;
+      }
 
       const data = await res.json();
       setDiscordUser(data.connected ? data : null);
     } catch (err) {
       if (err.name === 'AbortError') console.warn("Discord status check timed out");
       else console.error("Discord status check error:", err);
+      // Reset so we can retry on next attempt
+      hasFetchedStatus.current = false;
     } finally {
       statusLock.current = false;
     }
