@@ -31,13 +31,17 @@ export function LinkedInProvider({ children }) {
       });
       clearTimeout(id);
 
-      if (!res.ok) return;
+      if (!res.ok) {
+        hasFetchedStatus.current = false; // retry on next attempt
+        return;
+      }
       const data = await res.json();
       setIsConnected(data.connected || false);
       if (data.profile) setLinkedInUser(data.profile);
     } catch (e) {
       if (e.name === 'AbortError') console.warn("LinkedIn status check timed out");
       else console.warn("LinkedIn status check failed:", e);
+      hasFetchedStatus.current = false; // retry on next attempt
     } finally {
       statusLock.current = false;
     }
