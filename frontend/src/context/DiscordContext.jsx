@@ -44,13 +44,6 @@ export function DiscordProvider({ children }) {
     hasFetchedStatus.current = false;
   }, [user?.uid]);
 
-  // Force refresh status (for use after OAuth callback)
-  const forceRefreshStatus = useCallback(async () => {
-    hasFetchedStatus.current = false;
-    statusLock.current = false;
-    await fetchDiscordStatus();
-  }, [fetchDiscordStatus]);
-
   // =========================
   // DISCORD STATUS
   // =========================
@@ -92,6 +85,13 @@ export function DiscordProvider({ children }) {
       statusLock.current = false;
     }
   }, [user]);
+
+  // Force refresh status (for use after OAuth callback) - defined AFTER fetchDiscordStatus
+  const forceRefreshStatus = useCallback(async () => {
+    hasFetchedStatus.current = false;
+    statusLock.current = false;
+    await fetchDiscordStatus();
+  }, [fetchDiscordStatus]);
 
   useEffect(() => {
     if (user) fetchDiscordStatus();
