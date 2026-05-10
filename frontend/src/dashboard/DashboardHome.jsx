@@ -19,7 +19,7 @@ function timeAgo(iso) {
 
 export default function DashboardHome() {
   const user = auth.currentUser;
-  const { discordUser, isConnected, guilds, messages, refreshGuilds, fetchMessages, getBotInviteUrl, getDiscordAuthUrl, disconnectDiscord } = useDiscord();
+  const { discordUser, isConnected, guilds, messages, refreshGuilds, fetchMessages, getBotInviteUrl, getDiscordAuthUrl, disconnectDiscord, loading } = useDiscord();
   const { googleUser, isConnected: googleConnected, emails, events, fetchEmails, fetchEvents, getGoogleAuthUrl, disconnectGoogle } = useGoogle();
   const { linkedInUser, isConnected: linkedInConnected, posts: linkedInPosts, postsUnavailable: linkedInPostsUnavailable, fetchPosts: fetchLinkedInPosts, disconnectLinkedIn, getLinkedInAuthUrl } = useLinkedIn();
   const [greeting, setGreeting] = useState("Good morning");
