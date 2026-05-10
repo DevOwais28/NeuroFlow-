@@ -92,6 +92,14 @@ export function DiscordProvider({ children }) {
     if (user) fetchDiscordStatus();
   }, [user, fetchDiscordStatus]);
 
+  // Auto-fetch guilds when connected (on page load)
+  useEffect(() => {
+    if (discordUser && guilds.length === 0) {
+      refreshGuilds();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discordUser]);
+
   // =========================
   // AUTH URL
   // =========================
